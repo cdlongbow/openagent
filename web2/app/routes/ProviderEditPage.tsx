@@ -40,6 +40,7 @@ import {
 import { Slider } from "~/components/ui/slider"
 import { Switch } from "~/components/ui/switch"
 import { Textarea } from "~/components/ui/textarea"
+import ModelTestWidget from "~/components/provider/ModelTestWidget"
 
 export function meta() {
   return [{ title: "Edit Provider - OpenAgent" }]
@@ -90,9 +91,18 @@ const EMBEDDING_DEFAULTS: Record<string, string> = {
   Jina: "jina-embeddings-v2-base-en",
   Word2Vec: "word2vec",
 }
+const EMBEDDING_TEST_CONTENT = "This is a sample text for embedding generation."
+const TTS_TEST_CONTENT = "Hello, this is a test for text to speech conversion."
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v))
+}
+
+function withDefaultTestContent(provider: Provider): Provider {
+  if (provider.testContent) return provider
+  if (provider.category === "Embedding") return { ...provider, testContent: EMBEDDING_TEST_CONTENT }
+  if (provider.category === "Text-to-Speech") return { ...provider, testContent: TTS_TEST_CONTENT }
+  return provider
 }
 
 function isEnglish() {
@@ -370,13 +380,17 @@ export default function ProviderEditPage() {
   const [testing, setTesting] = useState(false)
   const [embeddingResult, setEmbeddingResult] = useState<number[] | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const stableModelProviderNameRef = useRef("")
 
   useEffect(() => {
     if (!providerName) return
+    stableModelProviderNameRef.current = ""
     getProvider("admin", providerName).then((res) => {
       if (res.status === "ok") {
-        setProvider(res.data)
-        setOriginalProvider(clone(res.data))
+        const nextProvider = withDefaultTestContent(res.data)
+        stableModelProviderNameRef.current = nextProvider.name
+        setProvider(nextProvider)
+        setOriginalProvider(clone(nextProvider))
         setCurrentName(providerName)
       } else {
         toast.error(`${i18next.t("general:Failed to get")}: ${res.msg}`)
@@ -389,13 +403,19 @@ export default function ProviderEditPage() {
   }
 
   function handleCategory(category: string) {
-    update("category", category)
-    if (category === "Storage") update("type", "Local File System")
-    if (category === "Model") { update("type", "OpenAI"); update("subType", "gpt-4") }
-    if (category === "Embedding") { update("type", "OpenAI"); update("subType", "AdaSimilarity") }
-    if (category === "Video") update("type", "AWS")
-    if (category === "Text-to-Speech") { update("type", "Alibaba Cloud"); update("subType", "cosyvoice-v1") }
-    if (category === "Speech-to-Text") { update("type", "Alibaba Cloud"); update("subType", "paraformer-realtime-v1") }
+    setProvider((p) => {
+      if (!p) return null
+
+      let nextProvider: Provider = { ...p, category }
+      if (category === "Storage") nextProvider = { ...nextProvider, type: "Local File System" }
+      if (category === "Model") nextProvider = { ...nextProvider, type: "OpenAI", subType: "gpt-4" }
+      if (category === "Embedding") nextProvider = { ...nextProvider, type: "OpenAI", subType: "AdaSimilarity" }
+      if (category === "Video") nextProvider = { ...nextProvider, type: "AWS" }
+      if (category === "Text-to-Speech") nextProvider = { ...nextProvider, type: "Alibaba Cloud", subType: "cosyvoice-v1" }
+      if (category === "Speech-to-Text") nextProvider = { ...nextProvider, type: "Alibaba Cloud", subType: "paraformer-realtime-v1" }
+
+      return withDefaultTestContent(nextProvider)
+    })
   }
 
   function handleType(type: string) {
@@ -414,6 +434,7 @@ export default function ProviderEditPage() {
       const res = await updateProvider(provider.owner, currentName, provider)
       if (res.status === "ok") {
         toast.success(i18next.t("general:Successfully saved"))
+        setOriginalProvider(clone(provider))
         setCurrentName(provider.name)
         setIsNewProvider(false)
         if (exit) navigate("/providers")
@@ -447,6 +468,8 @@ export default function ProviderEditPage() {
       const res = await updateProvider(provider.owner, currentName, provider)
       if (res.status !== "ok") throw new Error(res.msg || i18next.t("general:Failed to save"))
       setOriginalProvider(clone(provider))
+      setCurrentName(provider.name)
+      setIsNewProvider(false)
     }
   }
 
@@ -743,16 +766,18 @@ export default function ProviderEditPage() {
       <SectionCard title={i18next.t("provider:Provider Test")}>
         {provider.category === "Model" && (
           <FormField label={i18next.t("provider:Provider test")} tooltip={i18next.t("provider:Provider test - Tooltip")} className="sm:col-span-2 lg:col-span-3">
-            <Button variant="outline" onClick={() => navigate(`/chat?modelProvider=${encodeURIComponent(provider.name)}`)}>
-              {i18next.t("general:Chat")}
-            </Button>
+            <ModelTestWidget
+              provider={provider}
+              stableProviderName={stableModelProviderNameRef.current || originalProvider?.name || provider.name}
+              beforeSend={saveIfChanged}
+            />
           </FormField>
         )}
         {provider.category === "Embedding" && (
           <>
             <FormField label={i18next.t("provider:Provider test")} tooltip={i18next.t("provider:Provider test - Tooltip")} className="sm:col-span-2">
               <Textarea
-                value={provider.testContent || "This is a sample text for embedding generation."}
+                value={provider.testContent ?? ""}
                 onChange={(e) => update("testContent", e.target.value)}
               />
             </FormField>
@@ -773,7 +798,7 @@ export default function ProviderEditPage() {
           <>
             <FormField label={i18next.t("provider:Provider test")} tooltip={i18next.t("provider:Provider test - Tooltip")} className="sm:col-span-2">
               <Textarea
-                value={provider.testContent || "Hello, this is a test for text to speech conversion."}
+                value={provider.testContent ?? ""}
                 onChange={(e) => update("testContent", e.target.value)}
               />
             </FormField>

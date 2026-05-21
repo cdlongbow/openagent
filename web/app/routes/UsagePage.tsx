@@ -567,6 +567,8 @@ export default function UsagePage() {
   const [tableLoading, setTableLoading] = useState(false)
 
   const initialized = useRef(false)
+  const selectedUserRef = useRef(selectedUser)
+  selectedUserRef.current = selectedUser
 
   function getCountFromRangeType(rt: RangeType): number {
     if (rt === "Hour") return 72
@@ -651,8 +653,8 @@ export default function UsagePage() {
       })
       fetchProviderAndHeatmap(owner)
     } else {
-      fetchAllUsageData(selectedUser)
-      fetchTableInfo(selectedUser, accountName)
+      fetchAllUsageData(selectedUserRef.current)
+      fetchTableInfo(selectedUserRef.current, accountName)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, storeFilter])

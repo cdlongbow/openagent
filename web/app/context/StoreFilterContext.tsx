@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 
 type StoreFilterContextValue = {
   storeFilterEnabled: boolean
@@ -13,12 +13,8 @@ const StoreFilterContext = createContext<StoreFilterContextValue>({
 export function StoreFilterProvider({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(false)
 
-  const setStoreFilterEnabled = useCallback((v: boolean) => {
-    setEnabled(v)
-  }, [])
-
   return (
-    <StoreFilterContext.Provider value={{ storeFilterEnabled: enabled, setStoreFilterEnabled }}>
+    <StoreFilterContext.Provider value={{ storeFilterEnabled: enabled, setStoreFilterEnabled: setEnabled }}>
       {children}
     </StoreFilterContext.Provider>
   )

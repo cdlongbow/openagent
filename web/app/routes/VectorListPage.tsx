@@ -75,7 +75,7 @@ function newVector(): Vector {
     name: `vector_${rand}`,
     createdTime: new Date().toISOString(),
     displayName: `New Vector - ${rand}`,
-    store: "",
+    store: "store-built-in",
     file: "/aaa/openagent.txt",
     text: "The text of vector",
     data: [0.1, 0.2, 0.3],
